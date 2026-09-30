@@ -1,0 +1,20 @@
+[Unit]
+Description=Beyblade HK shops stock monitor (Telegram notifier)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/beyblade-monitor
+# 在此填入你的 Telegram Token 與 Chat ID（或改用 config.json 填寫）
+Environment=TELEGRAM_BOT_TOKEN=
+Environment=TELEGRAM_CHAT_ID=
+ExecStart=/usr/bin/python3 /opt/beyblade-monitor/monitor.py --loop 30
+Restart=always
+RestartSec=30
+# 記錄到 systemd journal（用 `journalctl -u beyblade-monitor -f` 查看）
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
