@@ -1,0 +1,42 @@
+{
+  "telegram": {
+    "bot_token": "",
+    "chat_id": ""
+  },
+  "keywords": ["beyblade", "爆旋陀螺", "ベイブレード", "陀螺"],
+  "exclude_keywords": ["tomica", "mazda"],
+  "code_pattern": "\\b(BX|UX)[\\-\\s]?\\d{1,2}\\b",
+  "state_file": "state.json",
+  "first_run_notify": true,
+  "request_interval_seconds": 0.4,
+  "shops": {
+    "lastchancetoy": {
+      "type": "shopify",
+      "name": "Last Chance Toy",
+      "url": "https://lastchancetoy.com",
+      "enabled": true
+    },
+    "tclub": {
+      "type": "shopify",
+      "name": "T Club",
+      "url": "https://www.tclub.com.hk",
+      "enabled": true
+    },
+    "toysrus": {
+      "type": "toysrus",
+      "name": "Toys\"R\"Us 香港",
+      "url": "https://www.toysrus.com.hk",
+      "sitemap": "https://www.toysrus.com.hk/zh-hk/sitemap-ToysRUs_HK_sitemap_tru_hk_products.0.xml",
+      "enabled": true
+    },
+    "hobbyland": {
+      "type": "hobbyland",
+      "name": "Hobbyland 玩具模型倉",
+      "url": "https://www.hobbylandeshop.com",
+      "backend": "https://backend.hobbylandeshop.com",
+      "static": "https://static.hobbylandeshop.com",
+      "search_terms": ["陀螺", "爆旋陀螺", "beyblade", "ベイブレード"],
+      "enabled": true
+    }
+  }
+}
