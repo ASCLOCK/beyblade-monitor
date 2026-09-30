@@ -134,7 +134,7 @@ python monitor.py --loop 30
 
 ## GitHub Actions 部署（完全免費、零伺服器、零信用卡）
 
-已幫你準備好 `.github/workflows/monitor.yml`，每 30 分鐘自動跑一次，狀態檔 `state.json` 會自動提交回倉庫保存（也順便避免排程因 60 天無 commit 被停用）。
+已幫你準備好 `.github/workflows/monitor.yml`，每 5 分鐘自動跑一次，狀態檔 `state.json` 會自動提交回倉庫保存（也順便避免排程因 60 天無 commit 被停用）。
 
 ### 步驟
 
@@ -157,12 +157,12 @@ python monitor.py --loop 30
      - `TELEGRAM_BOT_TOKEN` = 你的 Bot Token
      - `TELEGRAM_CHAT_ID` = 你的 Chat ID
 
-3. **啟用排程**：推到 `main` 分支後，workflow 會自動依 cron 每 30 分鐘執行。也可到 **Actions** 頁面選「Beyblade Monitor」→「Run workflow」手動觸發一次測試。
+3. **啟用排程**：推到 `main` 分支後，workflow 會自動依 cron 每 5 分鐘執行。也可到 **Actions** 頁面選「Beyblade Monitor」→「Run workflow」手動觸發一次測試。
 
 ### 注意
 
 - 排程用 **UTC** 時間；GitHub 的排程可能有數分鐘延遲（正常）。
-- **Private 倉庫**免費額度 2000 分鐘/月：每 30 分鐘一次約 1440 分鐘/月，足夠。**Public 倉庫**則完全不限分鐘，但 `state.json`（你監測的商品清單）會公開——內容不含 Token，若不在意可設 Public 換取不限額度。
+- ⚠️ **免費額度**：Private 倉庫每月 2000 分鐘，每 5 分鐘跑一次約需 8640 分鐘/月，**額度會爆**，建議把倉庫設為 **Public**（Public 完全不限分鐘；`state.json` 只是商品清單、不含 Token，公開無安全問題）。
 - ⚠️ 若你之前在本機設了 **Windows 工作排程**，記得停用它，否則會兩邊同時通知。
 
 ## 注意事項
