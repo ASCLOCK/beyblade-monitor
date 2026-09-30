@@ -2,8 +2,8 @@ name: Beyblade Monitor
 
 on:
   schedule:
-    # 每 30 分鐘執行一次（UTC 時間）
-    - cron: '*/30 * * * *'
+    # 每 5 分鐘執行一次（UTC 時間）
+    - cron: '*/5 * * * *'
   workflow_dispatch:   # 可在 GitHub 網頁手動觸發
 
 permissions:
