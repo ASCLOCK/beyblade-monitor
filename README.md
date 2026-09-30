@@ -21,7 +21,7 @@
 ## 使用前準備
 
 1. 安裝 **Python 3.8 以上**（Windows 到 python.org 下載安裝即可）。
-2. 確認 `config.json` 裡的 `telegram.bot_token` 與 `telegram.chat_id` 已填好（已幫你填上）。
+2. 確認 `config.json` 裡的 `telegram.bot_token` 與 `telegram.chat_id` 已填好。
 
 ## 使用方式
 
