@@ -1,0 +1,48 @@
+name: Beyblade Monitor
+
+on:
+  schedule:
+    # 每 30 分鐘執行一次（UTC 時間）
+    - cron: '*/30 * * * *'
+  workflow_dispatch:   # 可在 GitHub 網頁手動觸發
+
+permissions:
+  contents: write      # 允許把更新後的 state.json 提交回倉庫
+
+concurrency:
+  group: beyblade-monitor
+  cancel-in-progress: false   # 避免重疊執行
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Run monitor
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python monitor.py
+
+      - name: Commit state
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add state.json
+          if git diff --cached --quiet; then
+            echo "state unchanged, skip commit"
+          else
+            git commit -m "chore: update monitor state $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            git pull --rebase origin "$GITHUB_REF_NAME" || true
+            git push
+          fi
