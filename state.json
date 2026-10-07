@@ -251,7 +251,7 @@
         "title": "[現貨] TakaraTomy 爆旋陀螺X CX-19 隨機強化陀螺 鱷魚戰紋 TQ 5-50GN (款式隨機出貨🚚)"
       },
       "HL-TT-202610": {
-        "orderable": true,
+        "orderable": false,
         "title": "Hobbyland爆旋陀螺爭霸賽報名門票 - 10月9日 (星期五) 17:40《訂價:$30》"
       },
       "PRE-059905": {
@@ -265,10 +265,6 @@
       "4904810096139": {
         "orderable": true,
         "title": "[現貨] TakaraTomy 爆旋陀螺X UX-20 榮耀女武神LF"
-      },
-      "4904810939610": {
-        "orderable": true,
-        "title": "[現貨] TakaraTomy 爆旋陀螺 X -CX-03 英仙幽暗B6-80W"
       }
     }
   }
