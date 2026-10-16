@@ -8,8 +8,14 @@
 |------|------|------|
 | Last Chance Toy（lastchancetoy.com） | Shopify API | ✅ |
 | T Club（tclub.com.hk） | Shopify API | ✅ |
-| Toys"R"Us 香港（toysrus.com.hk） | 產品 Sitemap | ✅（僅偵測新上架） |
+| Toys"R"Us 香港（toysrus.com.hk） | 站內搜尋 API ＋ 產品 Sitemap | ✅（可偵測新上架與補貨） |
 | Hobbyland 玩具模型倉（hobbylandeshop.com） | 後端 API | ✅ |
+
+> **Toys"R"Us 抓取方式（2026-10 修正）**：新上架商品改用純數字網址（例：`/zh-hk/10173909.html`），
+> 商品名稱只在站內搜尋結果裡，舊的 sitemap 關鍵字過濾完全抓不到，會導致「有新貨卻沒通知」。
+> 現在改以站內搜尋端點
+> `https://www.toysrus.com.hk/on/demandware.store/Sites-ToysRUs_HK-Site/zh_HK/Search-UpdateGrid?q=<關鍵字>&start=0&sz=96`
+> 為主、sitemap 為輔；並用 `require_pattern` 過濾掉指尖陀螺、LEGO 忍者陀螺等非 Beyblade 商品。
 
 ## 檔案說明
 
@@ -21,7 +27,7 @@
 ## 使用前準備
 
 1. 安裝 **Python 3.8 以上**（Windows 到 python.org 下載安裝即可）。
-2. 確認 `config.json` 裡的 `telegram.bot_token` 與 `telegram.chat_id` 已填好。
+2. 確認 `config.json` 裡的 `telegram.bot_token` 與 `telegram.chat_id` 已填好（已幫你填上）。
 
 ## 使用方式
 
@@ -161,19 +167,30 @@ python monitor.py --loop 30
 
 ### 注意
 
-- 排程用 **UTC** 時間；GitHub 的排程可能有數分鐘延遲（正常）。
-- ⚠️ **免費額度**：Private 倉庫每月 2000 分鐘，每 5 分鐘跑一次約需 8640 分鐘/月，**額度會爆**，建議把倉庫設為 **Public**（Public 完全不限分鐘；`state.json` 只是商品清單、不含 Token，公開無安全問題）。
+- 排程用 **UTC** 時間。
+- ⚠️ **GitHub 會大幅節流 `schedule` 排程**（官方說明為 best-effort，可延遲甚至略過）。實測本專案 2026-09-30～10-16 共 16 天只跑了 79 次，**平均約 4.9 小時一次，最短間隔也有 2 小時**，寫 `*/5` 並不會真的每 5 分鐘跑。
+  想要真正 5 分鐘一次，最簡單是用免費的外部定時服務（例：cron-job.org）每 5 分鐘呼叫一次 GitHub 的 `workflow_dispatch` API：
+  ```
+  POST https://api.github.com/repos/ASCLOCK/beyblade-monitor/actions/workflows/monitor.yml/dispatches
+  Headers: Authorization: Bearer <PAT>   Accept: application/vnd.github+json
+  Body:    {"ref":"main"}
+  ```
+  （PAT 建議用 fine-grained token，只授權這一個倉庫的 **Actions: Read and write**。）
+- ⚠️ **免費額度**：Private 倉庫每月 2000 分鐘；Public 倉庫完全不限分鐘，建議設 **Public**（`state.json` 只是商品清單、不含 Token）。
 - ⚠️ 若你之前在本機設了 **Windows 工作排程**，記得停用它，否則會兩邊同時通知。
 
 ## 注意事項
 
 - `config.json` 的 Telegram Token 已留空（避免洩漏）；實際 Token 請放 GitHub Secrets 或環境變數，**不要**填回並提交。
-- 每間店掃描需數秒（Toys"R"Us 的 Sitemap 較大約 8MB），一次完整掃描約 10 秒。
+- 每間店掃描需數秒（Toys"R"Us 的 sitemap 約 8MB），一次完整掃描約 10 秒。
 - 網店偶爾會擋爬蟲或改版；若某間店掃描失敗，程式會記錄錯誤並繼續掃其他店，不會中斷。
-- Toys"R"Us 的 Sitemap 沒有庫存資訊，因此該店只能偵測「新上架」，無法偵測「補貨」。
+- HTTP 429／5xx 會自動退避重試（最多 3 次，優先採用 `Retry-After`），避免像 tclub 偶發限流就整間店漏掃。
+- Toys"R"Us 的庫存狀態取自搜尋結果的 `<div class="status">`（例如「暫時缺貨」），因此**新上架與補貨都能偵測**；sitemap 抓到的商品沒有庫存資訊，只會當成新上架。
 
 ## 常見問題
 
 - **收不到通知**：先跑 `python monitor.py --test`，確認 Telegram Token 與 Chat ID 正確，且你曾先對你的 Bot 傳過訊息（或把 Bot 加進群組）。
 - **拿到 Chat ID**：對 Telegram 的 `@userinfobot` 傳訊息即可取得你的個人 ID。
 - **建 Bot Token**：對 `@BotFather` 傳 `/newbot` 建立，取得形如 `123456:ABC...` 的 Token。
+- **玩具反斗城有新貨卻沒通知**：2026-10 實際發生過。原因是該站新商品改成純數字網址且不在 sitemap 內，舊版只掃 sitemap 因此永遠掃不到；現已改用站內搜尋 API。可用 `python monitor.py --scan` 確認 toysrus 抓到幾件。
+- **通知來得太慢**：GitHub Actions 的 `schedule` 被節流（實測約 2～5 小時一次），不是程式問題。要更快請見上面「注意」的外部定時觸發，或改用香港區的雲端主機 24 小時常駐。
