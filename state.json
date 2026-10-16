@@ -244,15 +244,20 @@
         "title": "爆旋陀螺X BX-00 獅王銳爪5-60P 金色版 【爆旋陀螺X限定陀螺交換產品】"
       }
     },
-    "toysrus": {},
+    "toysrus": {
+      "10173909": {
+        "orderable": false,
+        "title": "(網店預購) Beyblade爆旋陀螺X BX-54 凱旋超神0-70LP (預計2026年11月發貨)"
+      },
+      "10173908": {
+        "orderable": false,
+        "title": "(網店預購) Beyblade爆旋陀螺X CX-20 改造套裝C (預計2026年11月發貨)"
+      }
+    },
     "hobbyland": {
       "4904810080626": {
         "orderable": true,
         "title": "[現貨] TakaraTomy 爆旋陀螺X CX-19 隨機強化陀螺 鱷魚戰紋 TQ 5-50GN (款式隨機出貨🚚)"
-      },
-      "HL-TT-202610": {
-        "orderable": false,
-        "title": "Hobbyland爆旋陀螺爭霸賽報名門票 - 10月9日 (星期五) 17:40《訂價:$30》"
       },
       "PRE-059905": {
         "orderable": false,
