@@ -23,6 +23,7 @@
 """
 
 import argparse
+import html as html_lib
 import json
 import os
 import re
@@ -34,6 +35,13 @@ import urllib.error
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_CONFIG = os.path.join(BASE_DIR, "config.json")
+
+# Windows 主控台預設可能是 GBK，商品標題含 emoji 時 print 會直接崩潰
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+except Exception:
+    pass
 
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/124.0 Safari/537.36")
@@ -47,13 +55,44 @@ def log(msg):
 # 基本 HTTP 工具
 # ---------------------------------------------------------------------------
 
-def http_text(url, timeout=60, headers=None, method=None):
+def _retry_wait(err, attempt, base=5, cap=60):
+    """由 Retry-After 標頭或指數退避算出等待秒數。"""
+    wait = 0.0
+    try:
+        ra = err.headers.get("Retry-After")
+        if ra:
+            wait = float(str(ra).strip())
+    except Exception:
+        wait = 0.0
+    if wait <= 0:
+        wait = base * (2 ** attempt)
+    return min(wait, cap)
+
+
+def http_text(url, timeout=60, headers=None, method=None, retries=3):
+    """帶 UA 的請求；遇 429 / 5xx 會退避重試（網店常對同一 IP 限流）。"""
     h = {"User-Agent": UA}
     if headers:
         h.update(headers)
-    req = urllib.request.Request(url, headers=h, method=method)
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        return r.read().decode("utf-8", "replace")
+    last = None
+    for attempt in range(retries + 1):
+        req = urllib.request.Request(url, headers=h, method=method)
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                return r.read().decode("utf-8", "replace")
+        except urllib.error.HTTPError as e:
+            last = e
+            if e.code not in (429, 500, 502, 503, 504) or attempt >= retries:
+                raise
+            wait = _retry_wait(e, attempt)
+            log(f"  HTTP {e.code} 限流，等待 {wait:.0f} 秒後重試（{attempt + 1}/{retries}）")
+            time.sleep(wait)
+        except Exception as e:
+            last = e
+            if attempt >= retries:
+                raise
+            time.sleep(min(3 * (attempt + 1), 20))
+    raise last
 
 
 def http_json(url, timeout=60, headers=None):
@@ -66,9 +105,25 @@ def http_post_json(url, payload, timeout=60, headers=None):
     if headers:
         h.update(headers)
     data = json.dumps(payload).encode("utf-8")
-    req = urllib.request.Request(url, data=data, headers=h, method="POST")
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        return json.loads(r.read().decode("utf-8", "replace"))
+    last = None
+    for attempt in range(4):
+        req = urllib.request.Request(url, data=data, headers=h, method="POST")
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                return json.loads(r.read().decode("utf-8", "replace"))
+        except urllib.error.HTTPError as e:
+            last = e
+            if e.code not in (429, 500, 502, 503, 504) or attempt >= 3:
+                raise
+            wait = _retry_wait(e, attempt)
+            log(f"  HTTP {e.code} 限流，等待 {wait:.0f} 秒後重試（{attempt + 1}/3）")
+            time.sleep(wait)
+        except Exception as e:
+            last = e
+            if attempt >= 3:
+                raise
+            time.sleep(min(3 * (attempt + 1), 20))
+    raise last
 
 
 # ---------------------------------------------------------------------------
@@ -191,43 +246,103 @@ def scrape_shopify(shop_cfg, kw_re, exclude_re):
 
 
 def scrape_toysrus(shop_cfg, kw_re, exclude_re):
-    sitemap = shop_cfg["sitemap"]
-    xml = http_text(sitemap, timeout=120)
-    items = []
-    seen = set()
-    # 逐個 <url> 區塊解析 loc + lastmod
-    for m in re.finditer(
-            r"<url>\s*<loc>([^<]+)</loc>\s*<lastmod>([^<]+)</lastmod>",
-            xml, re.S):
-        loc = m.group(1)
-        # 跳過英文重複頁，只保留 zh-hk
-        if "/en-hk/" in loc:
+    """Toys"R"Us：用站內搜尋 API（可抓到純數字網址的新商品），再用產品 sitemap 補漏。
+
+    2026-10 修正：新上架商品網址變成 /zh-hk/<sku>.html（無英文 slug），
+    舊的 sitemap 關鍵字過濾完全抓不到，因此改以站內搜尋為主。
+    """
+    base = shop_cfg["url"].rstrip("/")
+    store = f"{base}/on/demandware.store/Sites-ToysRUs_HK-Site/zh_HK/"
+    terms = shop_cfg.get("search_terms") or ["beyblade", "爆旋陀螺", "陀螺"]
+    # 站內搜「陀螺」會撈到指尖陀螺、LEGO 忍者陀螺、Infinity Nado 等雜項，
+    # 故可用 require_pattern 要求標題必須帶有 Beyblade 專屬字樣。
+    req_pat = shop_cfg.get("require_pattern")
+    req_re = re.compile(req_pat, re.I) if req_pat else None
+    items = {}
+
+    # --- 1) 站內搜尋（主要來源）---
+    for term in terms:
+        url = store + "Search-UpdateGrid?q=" + urllib.parse.quote(term) + "&start=0&sz=96"
+        try:
+            page_html = http_text(url, timeout=90)
+        except Exception as e:
+            log(f"[toysrus] 搜尋「{term}」失敗：{e}")
             continue
-        if not matches(kw_re, exclude_re, loc):
-            continue
-        idm = re.search(r"-(\d+)\.html$", loc)
-        if not idm:
-            continue
-        pid = idm.group(1)
-        if pid in seen:
-            continue
-        seen.add(pid)
-        # 從網址 slug 重建可讀標題（去掉尾端商品編號）
-        slug = loc.rsplit("/", 2)[-1]
-        slug = slug[:-5] if slug.endswith(".html") else slug
-        slug = re.sub(rf"-{re.escape(pid)}$", "", slug)
-        title = re.sub(r"[_\-]+", " ", slug).strip()
-        items.append({
-            "id": pid,
-            "title": title,
-            "url": loc,
-            "price": None,
-            "orderable": None,      # sitemap 無庫存資訊，只偵測「新上架」
-            "image": None,
-            "status": None,
-            "lastmod": m.group(2),
-        })
-    return items
+        for block in page_html.split('dwMarker="product"')[1:]:
+            pid_m = re.search(r'data-pid="([^"]+)"', block)
+            if not pid_m:
+                continue
+            pid = pid_m.group(1)
+            meta = {}
+            meta_m = re.search(r"data-metadata='([^']*)'", block)
+            if meta_m:
+                try:
+                    meta = json.loads(meta_m.group(1))
+                except Exception:
+                    meta = {}
+            title = ""
+            nm = re.search(r'itemprop="name">([^<]*)<', block)
+            if nm:
+                title = html_lib.unescape(nm.group(1)).strip()
+            if not title:
+                title = (meta.get("name_local") or meta.get("name") or "").strip()
+            if not title or not matches(kw_re, exclude_re, title):
+                continue
+            if req_re is not None and not req_re.search(title):
+                continue
+            st_m = re.search(r'<div class="status">\s*([^<]*?)\s*</div>', block)
+            status = st_m.group(1).strip() if st_m else ""
+            orderable = not any(x in status for x in ("缺貨", "售罄", "售完", "補貨中"))
+            img_m = re.search(r'data-src="([^"]+)"', block)
+            image = html_lib.unescape(img_m.group(1)) if img_m else None
+            items[pid] = {
+                "id": pid,
+                "title": title,
+                "url": f"{base}/zh-hk/{pid}.html",
+                "price": meta.get("price"),
+                "orderable": orderable,
+                "image": image,
+                "status": status or "有貨",
+            }
+
+    # --- 2) 產品 sitemap 補漏 ---
+    sitemap = shop_cfg.get("sitemap")
+    if sitemap:
+        try:
+            xml = http_text(sitemap, timeout=120)
+            for m in re.finditer(
+                    r"<url>\s*<loc>([^<]+)</loc>\s*<lastmod>([^<]+)</lastmod>",
+                    xml, re.S):
+                loc = m.group(1)
+                if "/en-hk/" in loc:
+                    continue
+                if not matches(kw_re, exclude_re, loc):
+                    continue
+                idm = re.search(r"-(\d+)\.html$", loc)
+                if not idm:
+                    continue
+                pid = idm.group(1)
+                if pid in items:
+                    continue
+                slug = loc.rsplit("/", 2)[-1]
+                slug = slug[:-5] if slug.endswith(".html") else slug
+                slug = re.sub(rf"-{re.escape(pid)}$", "", slug)
+                title = re.sub(r"[_\-]+", " ", slug).strip()
+                if req_re is not None and not req_re.search(title):
+                    continue
+                items[pid] = {
+                    "id": pid,
+                    "title": title,
+                    "url": loc,
+                    "price": None,
+                    "orderable": None,   # sitemap 無庫存資訊
+                    "image": None,
+                    "status": None,
+                }
+        except Exception as e:
+            log(f"[toysrus] sitemap 讀取失敗：{e}")
+
+    return list(items.values())
 
 
 def scrape_hobbyland(shop_cfg, kw_re, exclude_re):
