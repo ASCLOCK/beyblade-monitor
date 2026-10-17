@@ -49,9 +49,15 @@ python monitor.py --loop 30
 
 > 第一次執行只會「建立基準」並送一封啟動摘要，**不會**把現有商品當成新貨狂通知。之後每次執行，只有「新的商品出現」或「原本缺貨變有貨」才會通知。
 
-## 讓它自動跑（推薦：Windows 排程）
+## 讓它自動跑
 
-> ✅ **已設定完成**：工作排程器內已建立「Beyblade Monitor」工作，每 30 分鐘自動執行一次。以下步驟僅供你需要重設或自行建立時參考。
+> ✅ **目前正式運作方式＝雲端**：GitHub Actions + cron-job.org 每 5 分鐘自動執行，**電腦關機也會跑**（詳見下方「雲端執行」章節）。
+>
+> ⚠️ 本機的 Windows 工作排程器工作「Beyblade Monitor」**已不存在**（2026-10-16 查證）。若你重新建立它，會與雲端版本**同時執行並重複發通知**；兩者只能選一個。
+>
+> 本機 `state.json` 與雲端的 `state.json` 是**兩份獨立狀態**。若要在本機跑，請先從倉庫下載最新的 `state.json` 覆蓋本機檔案，否則會把雲端已通知過的商品再通知一次。
+
+### 本機執行（可選）
 
 常駐 `--loop` 需要一直開著視窗。更穩定的做法是用 **Windows 工作排程器**，每 30 分鐘執行一次：
 
@@ -176,8 +182,15 @@ python monitor.py --loop 30
   Body:    {"ref":"main"}
   ```
   （PAT 建議用 fine-grained token，只授權這一個倉庫的 **Actions: Read and write**。）
+
+  > ✅ **本專案已設定完成**（2026-10-16）：cron-job.org 排程 **jobId `8659267`**，Asia/Hong_Kong 時區，每 5 分鐘觸發一次；憑證為 fine-grained token（僅 `ASCLOCK/beyblade-monitor` + Actions: Read and write）。實測 22:25 / 22:30 / 22:35 / 22:40 連續四次皆 HTTP 204 成功。
+  >
+  > **維護提醒**
+  > - Token 若設了到期日，**過期後排程會靜默失效**（GitHub 回 403）。建議建立時選 **No expiration**；若必須設期限，請在到期前重新產生並更新 cron-job.org 上的 `Authorization` 標頭。
+  > - 已在 cron-job.org 開啟失敗通知：連續失敗 3 次、自動停用、以及恢復成功都會寄 email 到註冊信箱，所以失效不會沒人發現。
+  > - 更換 Token 的方法：到 cron-job.org Console 編輯該排程 → Headers → 改 `Authorization: Bearer <新 token>`（或用 REST API `PATCH /jobs/8659267`）。
 - ⚠️ **免費額度**：Private 倉庫每月 2000 分鐘；Public 倉庫完全不限分鐘，建議設 **Public**（`state.json` 只是商品清單、不含 Token）。
-- ⚠️ 若你之前在本機設了 **Windows 工作排程**，記得停用它，否則會兩邊同時通知。
+- ⚠️ 若你之前在本機設了 **Windows 工作排程**，記得停用它（本機工作已不存在），否則會兩邊同時通知。
 
 ## 注意事項
 
@@ -185,7 +198,8 @@ python monitor.py --loop 30
 - 每間店掃描需數秒（Toys"R"Us 的 sitemap 約 8MB），一次完整掃描約 10 秒。
 - 網店偶爾會擋爬蟲或改版；若某間店掃描失敗，程式會記錄錯誤並繼續掃其他店，不會中斷。
 - HTTP 429／5xx 會自動退避重試（最多 3 次，優先採用 `Retry-After`），避免像 tclub 偶發限流就整間店漏掃。
-- Toys"R"Us 的庫存狀態取自搜尋結果的 `<div class="status">`（例如「暫時缺貨」），因此**新上架與補貨都能偵測**；sitemap 抓到的商品沒有庫存資訊，只會當成新上架。
+- Toys"R"Us 的庫存狀態先取搜尋結果的 `<div class="status">`（例如「暫時缺貨」），**再逐件讀商品頁的 `schema.org availability` 作校正並以商品頁為準**（`verify_product_page`），因為清單 tile 對「網店預購」商品不一定即時更新；sitemap 抓到的商品沒有庫存資訊，只會當成新上架。
+- **靜默失效守門員**：某間店若掃到 0 件（改版或被封鎖），會發 Telegram 警告，每店每日最多一次，避免像 2026-10 toysrus 那樣連續數天 0 件卻沒人知道。
 
 ## 常見問題
 
@@ -193,4 +207,5 @@ python monitor.py --loop 30
 - **拿到 Chat ID**：對 Telegram 的 `@userinfobot` 傳訊息即可取得你的個人 ID。
 - **建 Bot Token**：對 `@BotFather` 傳 `/newbot` 建立，取得形如 `123456:ABC...` 的 Token。
 - **玩具反斗城有新貨卻沒通知**：2026-10 實際發生過。原因是該站新商品改成純數字網址且不在 sitemap 內，舊版只掃 sitemap 因此永遠掃不到；現已改用站內搜尋 API。可用 `python monitor.py --scan` 確認 toysrus 抓到幾件。
+- **玩具反斗城返貨卻沒通知（2026-10-18）**：查證結果是該站兩件網店預購（BX-54 `10173909`、CX-20 `10173908`）在 22 小時內**一直顯示「暫時缺貨」**（清單 tile 與商品頁 `OutOfStock` 一致，`state.json` 的 5 個版本都只有 key 排序變動），所以程式「看到沒變」是正確的。為避免「清單 tile 對預購商品不即時更新」造成漏報，現已加上**商品頁 availability 校正**，並備有 `config.json` 的 `verify_product_page` 開關。若你確定當時頁面顯示可下單，那更可能是開賣時段短於掃描間隔（約 5 分鐘），可把 cron-job.org 的排程改成每 1～2 分鐘觸發以縮小盲區。
 - **通知來得太慢**：GitHub Actions 的 `schedule` 被節流（實測約 2～5 小時一次），不是程式問題。要更快請見上面「注意」的外部定時觸發，或改用香港區的雲端主機 24 小時常駐。
