@@ -342,6 +342,42 @@ def scrape_toysrus(shop_cfg, kw_re, exclude_re):
         except Exception as e:
             log(f"[toysrus] sitemap 讀取失敗：{e}")
 
+    # --- 3) 商品頁庫存校正 ---
+    # 網店預購商品的清單 tile 狀態有時不會即時反映「開賣／返貨」，
+    # 因此逐件讀商品頁的 schema.org availability，以商品頁為準。
+    if shop_cfg.get("verify_product_page", True):
+        for pid, item in items.items():
+            try:
+                pg = http_text(item["url"], timeout=60)
+            except Exception as e:
+                log(f"[toysrus] 商品頁讀取失敗 {pid}：{e}")
+                continue
+            avail = None
+            av_m = re.search(r'"availability"\s*:\s*"https?://schema\.org/([A-Za-z]+)"', pg)
+            if av_m:
+                avail = av_m.group(1)
+            else:
+                av_m = re.search(r'"availability"\s*:\s*"([^"]+)"', pg)
+                if av_m:
+                    avail = av_m.group(1).rstrip("/").rsplit("/", 1)[-1]
+            if not avail:
+                continue
+            if avail in ("InStock", "LimitedAvailability", "OnlineOnly", "PreOrder"):
+                page_ok = True
+                page_status = "預購中（可下單）" if avail == "PreOrder" else "有貨"
+            elif avail in ("OutOfStock", "SoldOut", "Discontinued"):
+                page_ok = False
+                page_status = "暫時缺貨"
+            else:
+                page_ok, page_status = None, avail
+            if page_ok is not None and item.get("orderable") != page_ok:
+                log(f"[toysrus] 庫存訊號校正 {pid}：清單={item.get('orderable')} "
+                    f"→ 商品頁={avail}（以商品頁為準）")
+            if page_ok is not None:
+                item["orderable"] = page_ok
+                item["status"] = page_status
+            time.sleep(0.3)
+
     return list(items.values())
 
 
@@ -432,9 +468,10 @@ def save_state(path, state):
 
 
 def detect_events(cfg, state, kw_re, exclude_re):
-    """回傳 (events, new_shops)。events = list[(kind, shop_key, item)]。"""
+    """回傳 (events, new_shops, counts)。events = list[(kind, shop_key, item)]。"""
     events = []
     new_shops = []
+    counts = {}
     for shop_key, shop_cfg in cfg["shops"].items():
         if not shop_cfg.get("enabled", True):
             continue
@@ -444,6 +481,7 @@ def detect_events(cfg, state, kw_re, exclude_re):
             log(f"[{shop_key}] 掃描失敗：{e}")
             continue
         time.sleep(cfg.get("request_interval_seconds", 0.4))
+        counts[shop_key] = len(items)
 
         prev = state["shops"].get(shop_key)
         new_state = {}
@@ -471,7 +509,38 @@ def detect_events(cfg, state, kw_re, exclude_re):
                     "title": it["title"],
                 }
         state["shops"][shop_key] = new_state
-    return events, new_shops
+    return events, new_shops, counts
+
+
+def watchdog_zero_shops(cfg, state, counts, bot_token, chat_id, notify):
+    """某間店掃到 0 件時發出警告（每店每日最多一次），避免改版後靜默失效。"""
+    if not counts:
+        return
+    meta = state.setdefault("meta", {})
+    warned = meta.setdefault("zero_warned", {})
+    today = time.strftime("%Y-%m-%d")
+    pending = []
+    for shop_key, n in counts.items():
+        if n > 0:
+            continue
+        name = cfg["shops"][shop_key]["name"]
+        if warned.get(shop_key) == today:
+            log(f"⚠️ [{shop_key}] 掃到 0 件商品（{name}），今日已提醒過")
+            continue
+        warned[shop_key] = today
+        log(f"⚠️ [{shop_key}] 掃到 0 件商品（{name}），可能改版或被封鎖")
+        pending.append((shop_key, name))
+    if not pending or not notify or not bot_token or not chat_id:
+        return
+    lines = ["⚠️ 監測警告：以下網店掃到 0 件商品", ""]
+    for shop_key, name in pending:
+        lines.append(f"・{name}（{shop_key}）")
+    lines += ["", "可能改版或被封鎖，請檢查 monitor.py 的抓取邏輯。"]
+    try:
+        telegram_send_message(bot_token, chat_id, "\n".join(lines))
+        log("已發送 0 件商品警告")
+    except Exception as e:
+        log(f"Telegram 警告發送失敗：{e}")
 
 
 # ---------------------------------------------------------------------------
@@ -482,13 +551,16 @@ def run_once(cfg, state_path, notify=True):
     state = load_state(state_path)
     kw_re = compile_kw_re(cfg)
     exclude_re = compile_exclude_re(cfg)
-    events, new_shops = detect_events(cfg, state, kw_re, exclude_re)
-    save_state(state_path, state)
+    events, new_shops, counts = detect_events(cfg, state, kw_re, exclude_re)
 
     bot_token, chat_id = resolve_telegram(cfg)
     if not bot_token or not chat_id:
         log("警告：Telegram Bot Token / Chat ID 未設定，無法發送通知。"
             "請設定環境變數 TELEGRAM_BOT_TOKEN 與 TELEGRAM_CHAT_ID（或 GitHub Secrets）。")
+
+    # 靜默失效守門員：某間店掃到 0 件（改版或被封鎖）時主動警告
+    watchdog_zero_shops(cfg, state, counts, bot_token, chat_id, notify)
+    save_state(state_path, state)
 
     # 首次建立基準：可選送一則啟動摘要
     if new_shops and notify and cfg.get("first_run_notify", True):
