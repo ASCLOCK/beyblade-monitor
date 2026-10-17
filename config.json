@@ -27,8 +27,9 @@
       "name": "Toys\"R\"Us 香港",
       "url": "https://www.toysrus.com.hk",
       "sitemap": "https://www.toysrus.com.hk/zh-hk/sitemap-ToysRUs_HK_sitemap_tru_hk_products.0.xml",
-      "search_terms": ["beyblade", "爆旋陀螺", "陀螺"],
+      "search_terms": ["beyblade", "爆旋陀螺", "陀螺", "爆旋", "BX", "UX", "CX"],
       "require_pattern": "beyblade|爆旋陀螺|ベイブレード|\\b(BX|UX)[\\-\\s]?\\d{1,2}\\b",
+      "verify_product_page": true,
       "enabled": true
     },
     "hobbyland": {
