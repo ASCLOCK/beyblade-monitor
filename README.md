@@ -51,7 +51,7 @@ python monitor.py --loop 30
 
 ## 讓它自動跑
 
-> ✅ **目前正式運作方式＝雲端**：GitHub Actions + cron-job.org 每 5 分鐘自動執行，**電腦關機也會跑**（詳見下方「雲端執行」章節）。
+> ✅ **目前正式運作方式＝雲端**：GitHub Actions + cron-job.org 每 2 分鐘自動執行，**電腦關機也會跑**（詳見下方「雲端執行」章節）。
 >
 > ⚠️ 本機的 Windows 工作排程器工作「Beyblade Monitor」**已不存在**（2026-10-16 查證）。若你重新建立它，會與雲端版本**同時執行並重複發通知**；兩者只能選一個。
 >
@@ -175,7 +175,7 @@ python monitor.py --loop 30
 
 - 排程用 **UTC** 時間。
 - ⚠️ **GitHub 會大幅節流 `schedule` 排程**（官方說明為 best-effort，可延遲甚至略過）。實測本專案 2026-09-30～10-16 共 16 天只跑了 79 次，**平均約 4.9 小時一次，最短間隔也有 2 小時**，寫 `*/5` 並不會真的每 5 分鐘跑。
-  想要真正 5 分鐘一次，最簡單是用免費的外部定時服務（例：cron-job.org）每 5 分鐘呼叫一次 GitHub 的 `workflow_dispatch` API：
+  想要更準時（每 1～2 分鐘），最簡單是用免費的外部定時服務（例：cron-job.org）每 2 分鐘呼叫一次 GitHub 的 `workflow_dispatch` API：
   ```
   POST https://api.github.com/repos/ASCLOCK/beyblade-monitor/actions/workflows/monitor.yml/dispatches
   Headers: Authorization: Bearer <PAT>   Accept: application/vnd.github+json
@@ -183,7 +183,7 @@ python monitor.py --loop 30
   ```
   （PAT 建議用 fine-grained token，只授權這一個倉庫的 **Actions: Read and write**。）
 
-  > ✅ **本專案已設定完成**（2026-10-16）：cron-job.org 排程 **jobId `8659267`**，Asia/Hong_Kong 時區，每 5 分鐘觸發一次；憑證為 fine-grained token（僅 `ASCLOCK/beyblade-monitor` + Actions: Read and write）。實測 22:25 / 22:30 / 22:35 / 22:40 連續四次皆 HTTP 204 成功。
+  > ✅ **本專案已設定完成**（2026-10-16，2026-10-18 由每 5 分鐘收緊為**每 2 分鐘**）：cron-job.org 排程 **jobId `8659267`**，Asia/Hong_Kong 時區；憑證為 fine-grained token（僅 `ASCLOCK/beyblade-monitor` + Actions: Read and write）。實測 22:25 / 22:30 / 22:35 / 22:40 連續四次皆 HTTP 204 成功。
   >
   > **維護提醒**
   > - Token 若設了到期日，**過期後排程會靜默失效**（GitHub 回 403）。建議建立時選 **No expiration**；若必須設期限，請在到期前重新產生並更新 cron-job.org 上的 `Authorization` 標頭。
@@ -207,5 +207,5 @@ python monitor.py --loop 30
 - **拿到 Chat ID**：對 Telegram 的 `@userinfobot` 傳訊息即可取得你的個人 ID。
 - **建 Bot Token**：對 `@BotFather` 傳 `/newbot` 建立，取得形如 `123456:ABC...` 的 Token。
 - **玩具反斗城有新貨卻沒通知**：2026-10 實際發生過。原因是該站新商品改成純數字網址且不在 sitemap 內，舊版只掃 sitemap 因此永遠掃不到；現已改用站內搜尋 API。可用 `python monitor.py --scan` 確認 toysrus 抓到幾件。
-- **玩具反斗城返貨卻沒通知（2026-10-18）**：查證結果是該站兩件網店預購（BX-54 `10173909`、CX-20 `10173908`）在 22 小時內**一直顯示「暫時缺貨」**（清單 tile 與商品頁 `OutOfStock` 一致，`state.json` 的 5 個版本都只有 key 排序變動），所以程式「看到沒變」是正確的。為避免「清單 tile 對預購商品不即時更新」造成漏報，現已加上**商品頁 availability 校正**，並備有 `config.json` 的 `verify_product_page` 開關。若你確定當時頁面顯示可下單，那更可能是開賣時段短於掃描間隔（約 5 分鐘），可把 cron-job.org 的排程改成每 1～2 分鐘觸發以縮小盲區。
+- **玩具反斗城返貨卻沒通知（2026-10-18）**：查證結果是該站兩件網店預購（BX-54 `10173909`、CX-20 `10173908`）在 22 小時內**一直顯示「暫時缺貨」**（清單 tile 與商品頁 `OutOfStock` 一致，`state.json` 的 5 個版本都只有 key 排序變動），所以程式「看到沒變」是正確的。為避免「清單 tile 對預購商品不即時更新」造成漏報，現已加上**商品頁 availability 校正**，並備有 `config.json` 的 `verify_product_page` 開關。若你確定當時頁面顯示可下單，那更可能是開賣時段短於掃描間隔，因此 2026-10-18 已把 cron-job.org 的觸發由每 5 分鐘收緊到**每 2 分鐘**（盲區由 5 分鐘縮到 2 分鐘）。
 - **通知來得太慢**：GitHub Actions 的 `schedule` 被節流（實測約 2～5 小時一次），不是程式問題。要更快請見上面「注意」的外部定時觸發，或改用香港區的雲端主機 24 小時常駐。
