@@ -2,11 +2,11 @@
   "shops": {
     "lastchancetoy": {
       "9330442109180": {
-        "orderable": false,
-        "title": "訂貨碼:80188 <訂價$535> #(免手續費)A+B賞 限定陀螺及發射器=BeybladeX 陀螺 x DMM 一番賞 Vol.2"
+        "orderable": true,
+        "title": "訂貨碼:80188 <訂價$535> #(免手續費)(每人限一)A+B賞 限定陀螺及發射器=BeybladeX 陀螺 x DMM 一番賞 Vol.2"
       },
       "9339242610940": {
-        "orderable": false,
+        "orderable": true,
         "title": "訂貨碼:80198 <訂價$1080> #(免手續費)(每人限一)Last賞 限定陀螺(金屬色)Vol.2=BeybladeX 陀螺 x DMM 一番賞"
       },
       "9330442305788": {
