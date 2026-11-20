@@ -1,6 +1,39 @@
 {
   "shops": {
-    "lastchancetoy": {},
+    "lastchancetoy": {
+      "9330442305788": {
+        "orderable": false,
+        "title": "訂貨碼:80189 <訂價$50> #(免手續費)C賞 (淨袋)特大手提袋=BeybladeX 陀螺 x DMM 一番賞 Vol.2"
+      },
+      "9330442109180": {
+        "orderable": false,
+        "title": "訂貨碼:80188 <訂價$535> #(免手續費)(每人限一)A+B賞 限定陀螺及發射器=BeybladeX 陀螺 x DMM 一番賞 Vol.2"
+      },
+      "9330442666236": {
+        "orderable": false,
+        "title": "訂貨碼:80193 <訂價$50> #(免手續費)G賞 (Set6pcs)壓克力吊飾及換裝貼紙=BeybladeX 陀螺 x DMM 一番賞 Vol.2"
+      },
+      "9330442600700": {
+        "orderable": false,
+        "title": "訂貨碼:80192 <訂價$50> #(免手續費)F賞 (Set6pcs)透明資料夾及戰鬥通行證裝飾貼紙=BeybladeX 陀螺 x DMM 一番賞 Vol.2"
+      },
+      "9330442502396": {
+        "orderable": false,
+        "title": "訂貨碼:80191 <訂價$50> #(免手續費)E賞 (Set5pcs)橡膠圈手環=BeybladeX 陀螺 x DMM 一番賞 Vol.2"
+      },
+      "9330442371324": {
+        "orderable": false,
+        "title": "訂貨碼:80190 <訂價$80> #(免手續費)D賞 (Set3盒)陀螺收納盒=BeybladeX 陀螺 x DMM 一番賞 Vol.2"
+      },
+      "9339242610940": {
+        "orderable": false,
+        "title": "訂貨碼:80198 <訂價$1080> #(免手續費)(每人限一)Last賞 限定陀螺(金屬色)Vol.2=BeybladeX 陀螺 x DMM 一番賞"
+      },
+      "9330443288828": {
+        "orderable": false,
+        "title": "訂貨碼:80194 <訂價$3850> #(免手續費)(原箱74+1pcs連Last賞)爆旋陀螺 一番賞 Vol.2=BeybladeX 陀螺 x DMM 一番賞 Vol.2"
+      }
+    },
     "tclub": {
       "15536615456841": {
         "orderable": false,
