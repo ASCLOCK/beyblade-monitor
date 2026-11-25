@@ -1,8 +1,16 @@
 {
   "shops": {
     "lastchancetoy": {
+      "15499851694332": {
+        "orderable": true,
+        "title": "訂貨碼:81570 <訂價$50> #(免手續費)(行版)C賞 (淨袋)特大手提袋=BeybladeX 陀螺 x DMM 一番賞 Vol.2"
+      },
+      "15499853660412": {
+        "orderable": true,
+        "title": "訂貨碼:81573 <訂價$50> #(免手續費)(行版)E賞 (Set5pcs)橡膠圈手環=BeybladeX 陀螺 x DMM 一番賞 Vol.2"
+      },
       "15499852939516": {
-        "orderable": false,
+        "orderable": true,
         "title": "訂貨碼:81572 <訂價$50> #(免手續費)(行版)D賞 (Set3盒)陀螺收納盒=BeybladeX 陀螺 x DMM 一番賞 Vol.2"
       }
     },
