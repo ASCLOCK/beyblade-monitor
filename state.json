@@ -1,6 +1,11 @@
 {
   "shops": {
-    "lastchancetoy": {},
+    "lastchancetoy": {
+      "15499852939516": {
+        "orderable": false,
+        "title": "訂貨碼:81572 <訂價$50> #(免手續費)(行版)D賞 (Set3盒)陀螺收納盒=BeybladeX 陀螺 x DMM 一番賞 Vol.2"
+      }
+    },
     "tclub": {
       "15536615456841": {
         "orderable": false,
